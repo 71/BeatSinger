@@ -10,6 +10,9 @@ namespace BeatSinger
     /// </summary>
     public sealed class LyricsComponent : MonoBehaviour
     {
+        // Keep track of the latest chosen option globally.
+        private static bool shouldEnable = true;
+        
         private static readonly FieldInfo DurationField = typeof(FlyingTextSpawner).GetField("_duration", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly FieldInfo SongFileField = typeof(GameSongController).GetField("_songFile", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly FieldInfo AudioTimeSyncField = typeof(GameSongController).GetField("_audioTimeSyncController", BindingFlags.NonPublic | BindingFlags.Instance);
@@ -19,7 +22,7 @@ namespace BeatSinger
         private GameSongController songController;
         private FlyingTextSpawner textSpawner;
 
-        private bool isEnabled = true;
+        private bool isEnabled = shouldEnable;
 
         public void Start()
         {
@@ -63,6 +66,11 @@ namespace BeatSinger
                 SpawnText("Lyrics found", 3f);
                 StartCoroutine(DisplayLyrics(subs));
             }));
+        }
+
+        public void Destroy()
+        {
+            shouldEnable = isEnabled;
         }
 
         public void Update()
