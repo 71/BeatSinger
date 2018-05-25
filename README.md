@@ -1,7 +1,7 @@
 Beat Singer
 ===========
 
-![Video](Video.gif)
+[![Video](Video.gif)](https://youtu.be/95n0W1IpHFs)
 
 Displays song lyrics in-game.
 
