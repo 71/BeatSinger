@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using UnityEngine;
@@ -11,20 +12,18 @@ namespace BeatSinger
     public sealed class LyricsComponent : MonoBehaviour
     {
         // Keep track of the latest chosen option globally.
-        private static bool shouldEnable = true;
-        
-        private static readonly FieldInfo DurationField = typeof(FlyingTextSpawner).GetField("_duration", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo SongFileField = typeof(GameSongController).GetField("_songFile", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo AudioTimeSyncField = typeof(GameSongController).GetField("_audioTimeSyncController", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static bool shouldDisplayLyrics = true;
 
-        private AudioClip audioClip;
+        private static readonly FieldInfo AudioTimeSyncField  = typeof(GameSongController).GetField("_audioTimeSyncController", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo DurationField       = typeof(FlyingTextSpawner).GetField("_duration", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo FilenameField       = typeof(GameSongController).GetField("_audioFilenamePath", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo SongFileField       = typeof(GameSongController).GetField("_songFile", BindingFlags.NonPublic | BindingFlags.Instance);
+
         private LevelStaticData levelData;
         private GameSongController songController;
         private FlyingTextSpawner textSpawner;
 
-        private bool isEnabled = shouldEnable;
-
-        public void Start()
+        public IEnumerator Start()
         {
             // The goal now is to find the clip this scene will be playing.
             // For this, we find the single root gameObject (which is the gameObject
@@ -36,52 +35,63 @@ namespace BeatSinger
             songController = gameObject.GetComponentInChildren<GameSongController>();
 
             if (textSpawner == null || songController == null)
-                return;
+                yield break;
 
 
-            audioClip = (AudioClip)SongFileField.GetValue(songController);
+            AudioClip audioClip = (AudioClip)SongFileField.GetValue(songController);
+            string filename = (string)FilenameField.GetValue(songController);
 
-            // Clip found, now select the first song that has the same clip (using reference comparison).
-            levelData = (from world in PersistentSingleton<GameDataModel>.instance.gameStaticData.worldsData
-                         from levelStaticData in world.levelsData
-                         from difficultyLevel in levelStaticData.difficultyLevels
-                         where ReferenceEquals(difficultyLevel.audioClip, audioClip)
-                         select levelStaticData).FirstOrDefault();
+            List<Subtitle> subtitles = new List<Subtitle>();
 
-            if (levelData == null)
+            if (LyricsFetcher.GetLocalLyrics(filename, subtitles))
             {
-                Debug.Log("Corresponding song not found.");
+                // Lyrics found locally, continue with them.
+                SpawnText("Lyrics found locally", 3f);
+            }
+            else
+            {
+                // Clip found, now select the first song that has the same clip (using reference comparison).
+                levelData = (from world in PersistentSingleton<GameDataModel>.instance.gameStaticData.worldsData
+                             from levelStaticData in world.levelsData
+                             from difficultyLevel in levelStaticData.difficultyLevels
+                             where ReferenceEquals(difficultyLevel.audioClip, audioClip)
+                             select levelStaticData).FirstOrDefault();
 
-                return;
+                if (levelData == null)
+                {
+                    Debug.Log("Corresponding song not found.");
+
+                    yield break;
+                }
+
+                // We found the matching song, we can get started.
+                Debug.Log($"Corresponding song data found: {levelData.songName} by {levelData.authorName}.");
+
+                // When this coroutine ends, it will call the given callback with a list
+                // of all the subtitles we found, and allow us to react.
+                // If no subs are found, the callback is not called.
+                yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(levelData.songName, levelData.authorName, subtitles));
+
+                if (subtitles.Count == 0)
+                    yield break;
+
+                SpawnText("Lyrics found online", 3f);
             }
 
-            // We found the matching song, we can get started.
-            Debug.Log($"Corresponding song data found: {levelData.songName} by {levelData.authorName}.");
-
-            // When this coroutine ends, it will call the given callback with a list
-            // of all the subtitles we found, and allow us to react.
-            // If no subs are found, the callback is not called.
-            StartCoroutine(LyricsFetcher.GetLyrics(levelData.songName, levelData.authorName, subs =>
-            {
-                SpawnText("Lyrics found", 3f);
-                StartCoroutine(DisplayLyrics(subs));
-            }));
-        }
-
-        public void Destroy()
-        {
-            shouldEnable = isEnabled;
+            StartCoroutine(DisplayLyrics(subtitles));
         }
 
         public void Update()
         {
-            if (Input.GetKeyDown(KeyCode.S))
-            {
-                isEnabled = !isEnabled;
-            }
+            if (!Input.GetKeyDown(KeyCode.S))
+                return;
+
+            shouldDisplayLyrics = !shouldDisplayLyrics;
+
+            SpawnText(shouldDisplayLyrics ? "Lyrics enabled." : "Lyrics disabled.", 3f);
         }
 
-        private IEnumerator DisplayLyrics(Subtitle[] subtitles)
+        private IEnumerator DisplayLyrics(IList<Subtitle> subtitles)
         {
             AudioTimeSyncController audio = (AudioTimeSyncController)AudioTimeSyncField.GetValue(songController);
 
@@ -89,11 +99,11 @@ namespace BeatSinger
             // the next subtitle to display (initially the first one at index 0), and when
             // said subtitle is supposed to appear, we spawn it using SpawnText, until either
             // the end of the song if it's the last subtitle, or the next subtitle otherwise.
-            for (int i = 0; i < subtitles.Length;)
+            for (int i = 0; i < subtitles.Count;)
             {
                 Subtitle subtitle = subtitles[i];
 
-                float subtitleTime = subtitle.Time.Total,
+                float subtitleTime = subtitle.Time,
                       currentTime = audio.songTime;
 
                 if (subtitleTime > currentTime)
@@ -108,11 +118,22 @@ namespace BeatSinger
                 }
 
                 // We good, display subtitle and increase current index.
-                if (isEnabled)
-                    SpawnText(subtitle.Text, ++i == subtitles.Length ? audio.songLength - currentTime
-                                                                     : subtitles[i].Time.Total - currentTime);
-                else
+                float displayDuration;
+
+                if (subtitle.EndTime.HasValue)
+                {
+                    displayDuration = subtitle.EndTime.Value - currentTime;
                     i++;
+                }
+                else
+                {
+                    displayDuration = ++i == subtitles.Count
+                                    ? audio.songLength - currentTime
+                                    : subtitles[i].Time - currentTime;
+                }
+
+                if (shouldDisplayLyrics)
+                    SpawnText(subtitle.Text, displayDuration);
             }
         }
 
