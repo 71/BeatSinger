@@ -94,12 +94,12 @@ namespace BeatSinger
 
         public void Update()
         {
-            if (!Input.GetKeyDown(KeyCode.S))
+            if (!Input.GetKeyUp(KeyCode.S))
                 return;
 
             shouldDisplayLyrics = !shouldDisplayLyrics;
 
-            SpawnText(shouldDisplayLyrics ? "Lyrics enabled." : "Lyrics disabled.", 3f);
+            SpawnText(shouldDisplayLyrics ? "Lyrics enabled" : "Lyrics disabled", 3f);
         }
 
         private IEnumerator DisplayLyrics(IList<Subtitle> subtitles)
