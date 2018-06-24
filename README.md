@@ -9,7 +9,8 @@ Displays song lyrics in-game.
 > If you want to use them anyway, you'll have to edit their metadata manually so that the song and artist names are valid.
 
 ## Installation
-After installing any other mod for Beat Saber, drop [`BeatSinger.dll`](https://github.com/6A/BeatSinger/releases) into the `Beat Saber/Plugins` directory.
+After installing the [custom song loader](https://github.com/xyonico/BeatSaberSongLoader), drop
+[`BeatSinger.dll`](https://github.com/6A/BeatSinger/releases) into the `Beat Saber/Plugins` directory.
 
 ## Usage
 - When lyrics for a song can be found, the message "lyrics found" will be shown at the beginning of the level song.
@@ -23,15 +24,14 @@ custom lyrics either for quality, or for offline access.
 BeatSinger will thus load lyrics in the following order:
 1. File named `lyrics.json` in the directory of the song.
 2. File named `lyrics.srt` in the directory of the song.
-3. File named `[song file name without .ogg].srt` in the directory of the song.
-4. Online resolution.
+3. Online resolution.
 
 #### JSON files must have the following format:
 ```json
 [
   { "text": "Never gonna give you up", "time": 10.00, "end": 11.10 },
   { "text": "Never gonna let you down", "time": 11.24 },
-  ...
+  "..."
 ]
 ```
 

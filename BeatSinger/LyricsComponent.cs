@@ -16,7 +16,7 @@ namespace BeatSinger
 
         private static readonly FieldInfo AudioTimeSyncField  = typeof(GameSongController).GetField("_audioTimeSyncController", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly FieldInfo DurationField       = typeof(FlyingTextSpawner).GetField("_duration", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo FilenameField       = typeof(GameSongController).GetField("_audioFilenamePath", BindingFlags.NonPublic | BindingFlags.Instance);
+        private static readonly FieldInfo SetupDataField      = typeof(MainGameSceneSetup).GetField("_mainGameSceneSetupData", BindingFlags.NonPublic | BindingFlags.Instance);
         private static readonly FieldInfo SongFileField       = typeof(GameSongController).GetField("_songFile", BindingFlags.NonPublic | BindingFlags.Instance);
 
         private LevelStaticData levelData;
@@ -31,19 +31,28 @@ namespace BeatSinger
             // then we get its GameSongController to find the audio clip,
             // and its FlyingTextSpawner to display the lyrics.
 
+
             textSpawner = gameObject.GetComponentInChildren<FlyingTextSpawner>();
             songController = gameObject.GetComponentInChildren<GameSongController>();
 
             if (textSpawner == null || songController == null)
                 yield break;
 
+            Debug.Log(FindObjectsOfType<MainGameSceneSetup>().Length);
 
-            AudioClip audioClip = (AudioClip)SongFileField.GetValue(songController);
-            string filename = (string)FilenameField.GetValue(songController);
+            MainGameSceneSetup sceneSetup = FindObjectOfType<MainGameSceneSetup>();
+
+            if (sceneSetup == null)
+                yield break;
+
+            MainGameSceneSetupData sceneSetupData = SetupDataField.GetValue(sceneSetup) as MainGameSceneSetupData;
+
+            if (sceneSetupData == null)
+                yield break;
 
             List<Subtitle> subtitles = new List<Subtitle>();
 
-            if (LyricsFetcher.GetLocalLyrics(filename, subtitles))
+            if (LyricsFetcher.GetLocalLyrics(sceneSetupData.levelId, subtitles))
             {
                 // Lyrics found locally, continue with them.
                 SpawnText("Lyrics found locally", 3f);
@@ -51,6 +60,8 @@ namespace BeatSinger
             else
             {
                 // Clip found, now select the first song that has the same clip (using reference comparison).
+                AudioClip audioClip = (AudioClip)SongFileField.GetValue(songController);
+
                 levelData = (from world in PersistentSingleton<GameDataModel>.instance.gameStaticData.worldsData
                              from levelStaticData in world.levelsData
                              from difficultyLevel in levelStaticData.difficultyLevels

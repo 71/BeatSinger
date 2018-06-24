@@ -57,12 +57,12 @@ namespace BeatSinger
         ///   Fetches the lyrics of the given song on the local file system and, if they're found,
         ///   populates the given list.
         /// </summary>
-        public static bool GetLocalLyrics(string songFilename, List<Subtitle> subtitles)
+        public static bool GetLocalLyrics(string songId, List<Subtitle> subtitles)
         {
-            string songDirectory = Path.GetDirectoryName(songFilename);
-
-            if (songDirectory == null)
+            if (!Plugin.CustomSongs.TryGetValue(songId, out string songDirectory))
                 return false;
+
+            Debug.Log("Found song directory: " + songDirectory);
 
             // Find JSON lyrics
             string jsonFile = Path.Combine(songDirectory, "lyrics.json");
@@ -84,11 +84,6 @@ namespace BeatSinger
 
             // Find SRT lyrics
             string srtFile = Path.Combine(songDirectory, "lyrics.srt");
-
-            if (!File.Exists(srtFile))
-            {
-                srtFile = Path.ChangeExtension(songFilename, ".srt");
-            }
 
             if (File.Exists(srtFile))
             {
@@ -168,7 +163,10 @@ namespace BeatSinger
                     return true;
                 }
 
-                Invalid: subtitles.Clear();
+                Invalid:
+
+                Debug.Log("Invalid subtiles file found, cancelling load...");
+                subtitles.Clear();
             }
 
             return false;
