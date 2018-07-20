@@ -14,13 +14,15 @@ namespace BeatSinger
     public sealed class Plugin : IPlugin
     {
         internal static Dictionary<string, string> CustomSongs { get; } = new Dictionary<string, string>();
-        internal static Redirection RetrieveAllSongsRedirection { get; private set; }
+        internal static Redirection GetCustomSongInfoRedirection { get; private set; }
 
         public string Name => "Beat Singer";
-        public string Version => "0.3.1";
+        public string Version => "0.4.0";
 
         public void OnApplicationStart()
         {
+            Settings.Load();
+
             Type songLoaderType = Type.GetType("SongLoaderPlugin.SongLoader," +
                                                "SongLoaderPlugin," +
                                                "Version=1.0.0.0," +
@@ -30,40 +32,36 @@ namespace BeatSinger
             if (songLoaderType == null)
                 return;
 
-            MethodInfo retrieveAllSongsInfo = songLoaderType.GetMethod("RetrieveAllSongs",
-                                                                       BindingFlags.NonPublic |
-                                                                       BindingFlags.Instance);
+            MethodInfo getCustomSongInfoInfo = songLoaderType.GetMethod("GetCustomSongInfo",
+                                                                        BindingFlags.NonPublic |
+                                                                        BindingFlags.Instance);
 
-            MethodInfo replacementInfo = typeof(Plugin).GetMethod(nameof(RetrieveAllSongsReplacement),
+            MethodInfo replacementInfo = typeof(Plugin).GetMethod(nameof(GetCustomSongInfoReplacement),
                                                                   BindingFlags.NonPublic |
                                                                   BindingFlags.Static);
 
 
-            RetrieveAllSongsRedirection = new Redirection(retrieveAllSongsInfo, replacementInfo, true);
+            GetCustomSongInfoRedirection = new Redirection(getCustomSongInfoInfo, replacementInfo, true);
 
             SceneManager.activeSceneChanged += OnActiveSceneChanged;
         }
 
-        private static object RetrieveAllSongsReplacement(object self)
+        private static object GetCustomSongInfoReplacement(object self, string songPath)
         {
-            IEnumerable result = (IEnumerable)RetrieveAllSongsRedirection.InvokeOriginal(self);
+            object result = GetCustomSongInfoRedirection.InvokeOriginal(self, songPath);
 
-            foreach (object song in result)
-            {
-                if (song == null)
-                    continue;
+            MethodInfo idMethod = result.GetType().GetMethod("GetIdentifier");
+            string identifier = (string)idMethod.Invoke(result, new object[0]);
 
-                FieldInfo pathField = song.GetType().GetField("path");
-                MethodInfo idMethod = song.GetType().GetMethod("GetIdentifier");
-
-                CustomSongs[(string)idMethod.Invoke(song, new object[0])] = (string)pathField.GetValue(song);
-            }
+            CustomSongs[identifier] = songPath;
 
             return result;
         }
 
         public void OnApplicationQuit()
         {
+            Settings.Save();
+
             SceneManager.activeSceneChanged -= OnActiveSceneChanged;
         }
 
