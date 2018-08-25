@@ -15,7 +15,10 @@ After installing the [custom song loader](https://github.com/xyonico/BeatSaberSo
 ## Usage
 - When lyrics for a song can be found, the message "lyrics found" will be shown at the beginning of the level song.
 - Lyrics are automatically looked up using [musixmatch](https://www.musixmatch.com); you do not need to add them yourself.
-- You can press the `S` key to toggle lyrics in-game.
+- You can press the `Right Thumbstick` (or trackpad on the Vive)
+  to toggle lyrics in-game. The key can be changed in
+  `Beat Saber\UserData\modprefs.ini`, by setting `ToggleKeyCode`
+  to a valid `KeyCode` value.
 
 ### Custom lyrics
 Even though lyrics can be looked up automatically, it can be interesting to have
