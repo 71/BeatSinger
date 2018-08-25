@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
 
@@ -75,7 +74,7 @@ namespace BeatSinger
 
         public void Update()
         {
-            if (!Input.GetKeyUp(KeyCode.S))
+            if (!Input.GetKeyUp((KeyCode)Settings.ToggleKeyCode))
                 return;
 
             Settings.DisplayLyrics = !Settings.DisplayLyrics;

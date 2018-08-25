@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using SongLoaderPlugin;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -59,7 +60,10 @@ namespace BeatSinger
         /// </summary>
         public static bool GetLocalLyrics(string songId, List<Subtitle> subtitles)
         {
-            if (!Plugin.CustomSongs.TryGetValue(songId, out string songDirectory))
+            string songDirectory = SongLoader.CustomLevels.Find(x => x.levelID == songId)
+                                                         ?.customSongInfo
+                                                         ?.GetAudioPath();
+            if (songDirectory == null)
                 return false;
 
             Debug.Log("Found song directory: " + songDirectory);
