@@ -60,13 +60,11 @@ namespace BeatSinger
         /// </summary>
         public static bool GetLocalLyrics(string songId, List<Subtitle> subtitles)
         {
-            string songDirectory = SongLoader.CustomLevels.Find(x => x.levelID == songId)
+            string songDirectory = SongLoader.CustomLevels.Find(x => x.customSongInfo.GetIdentifier() == songId)
                                                          ?.customSongInfo
-                                                         ?.GetAudioPath();
+                                                         ?.path;
             if (songDirectory == null)
                 return false;
-
-            Debug.Log("Found song directory: " + songDirectory);
 
             // Find JSON lyrics
             string jsonFile = Path.Combine(songDirectory, "lyrics.json");
