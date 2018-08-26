@@ -1,0 +1,43 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Beat Singer - Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/unfetch/dist/unfetch.umd.js"></script>
+    
+    <script>
+      var pathparts = location.pathname.split('/')
+      var token = pathparts[pathparts.length - 1]
+
+      function submit() {
+        var id      = document.getElementById('id').value
+        var content = document.getElementById('content').value
+        var isJson  = document.getElementById('json').value
+
+        fetch('/upload/' + token + '/' + id, {
+          method: 'POST',
+          headers: {
+            'Content-Type': isJson ? 'application/json' : 'text/plain'
+          },
+          body: content
+        })
+        .then(r => {
+          if (r.status == 200) {
+            alert('Song uploaded!')
+          } else {
+            alert('Song could not be uploaded (' + r.status + '): ' + r.statusText)
+          }
+        })
+      }
+    </script>
+  </head>
+
+  <body>
+    <h1>Upload new song lyrics</h1>
+    <input type="text" placeholder="Song ID" id="id">
+    <textarea id="content"></textarea>
+    <input type="checkbox" id="json">
+
+    <button onclick="submit">Submit</button>
+  </body>
+</html>
