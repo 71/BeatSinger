@@ -1,6 +1,8 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Reflection.Emit;
 using UnityEngine;
 
 namespace BeatSinger
@@ -10,13 +12,52 @@ namespace BeatSinger
     /// </summary>
     public sealed class LyricsComponent : MonoBehaviour
     {
-        // Keep track of the latest chosen option globally.
-        private static readonly FieldInfo AudioTimeSyncField  = typeof(GameSongController).GetField("_audioTimeSyncController", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo DurationField       = typeof(FlyingTextSpawner).GetField("_duration", BindingFlags.NonPublic | BindingFlags.Instance);
-        private static readonly FieldInfo SetupDataField      = typeof(MainGameSceneSetup).GetField("_mainGameSceneSetupData", BindingFlags.NonPublic | BindingFlags.Instance);
+        private const BindingFlags NON_PUBLIC_INSTANCE = BindingFlags.NonPublic | BindingFlags.Instance;
+
+        private static readonly FieldInfo AudioTimeSyncField
+            = typeof(GameSongController).GetField("_audioTimeSyncController", NON_PUBLIC_INSTANCE);
+
+        private static readonly FieldInfo SetupDataField
+            = typeof(MainGameSceneSetup).GetField("_mainGameSceneSetupData", NON_PUBLIC_INSTANCE);
+
+        private static readonly Func<FlyingTextSpawner, float> GetTextSpawnerDuration;
+        private static readonly Action<FlyingTextSpawner, float> SetTextSpawnerDuration;
+
+        static LyricsComponent()
+        {
+            FieldInfo durationField = typeof(FlyingTextSpawner).GetField("_duration", NON_PUBLIC_INSTANCE);
+
+            if (durationField == null)
+                throw new Exception("Cannot find _duration field of FlyingTextSpawner.");
+
+            // Create dynamic setter
+            DynamicMethod setterMethod = new DynamicMethod("SetDuration", typeof(void), new[] { typeof(FlyingTextSpawner), typeof(float) }, typeof(FlyingTextSpawner));
+            ILGenerator setterIl = setterMethod.GetILGenerator(16);
+
+            setterIl.Emit(OpCodes.Ldarg_0);
+            setterIl.Emit(OpCodes.Ldarg_1);
+            setterIl.Emit(OpCodes.Stfld, durationField);
+            setterIl.Emit(OpCodes.Ret);
+
+            SetTextSpawnerDuration = setterMethod.CreateDelegate(typeof(Action<FlyingTextSpawner, float>))
+                                  as Action<FlyingTextSpawner, float>;
+
+            // Create dynamic getter
+            DynamicMethod getterMethod = new DynamicMethod("GetDuration", typeof(float), new[] { typeof(FlyingTextSpawner) }, typeof(FlyingTextSpawner));
+            ILGenerator getterIl = getterMethod.GetILGenerator(16);
+
+            getterIl.Emit(OpCodes.Ldarg_0);
+            getterIl.Emit(OpCodes.Ldfld, durationField);
+            getterIl.Emit(OpCodes.Ret);
+
+            GetTextSpawnerDuration = getterMethod.CreateDelegate(typeof(Func<FlyingTextSpawner, float>))
+                                  as Func<FlyingTextSpawner, float>;
+        }
+
 
         private GameSongController songController;
         private FlyingTextSpawner textSpawner;
+        private AudioTimeSyncController audio;
 
         public IEnumerator Start()
         {
@@ -32,6 +73,8 @@ namespace BeatSinger
 
             if (textSpawner == null || songController == null)
                 yield break;
+            
+            audio = (AudioTimeSyncController)AudioTimeSyncField.GetValue(songController);
 
             MainGameSceneSetup sceneSetup = FindObjectOfType<MainGameSceneSetup>();
 
@@ -56,7 +99,7 @@ namespace BeatSinger
                 IStandardLevel level = sceneSetupData.difficultyLevel.level;
 
                 // We found the matching song, we can get started.
-                Debug.Log($"Corresponding song data found: {level.songName} by {level.songAuthorName}.");
+                Debug.Log($"Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
 
                 // When this coroutine ends, it will call the given callback with a list
                 // of all the subtitles we found, and allow us to react.
@@ -64,7 +107,12 @@ namespace BeatSinger
                 yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(level.songName, level.songAuthorName, subtitles));
 
                 if (subtitles.Count == 0)
-                    yield break;
+                {
+                    yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(level.songName, level.songSubName, subtitles));
+
+                    if (subtitles.Count == 0)
+                        yield break;
+                }
 
                 SpawnText("Lyrics found online", 3f);
             }
@@ -84,47 +132,53 @@ namespace BeatSinger
 
         private IEnumerator DisplayLyrics(IList<Subtitle> subtitles)
         {
-            AudioTimeSyncController audio = (AudioTimeSyncController)AudioTimeSyncField.GetValue(songController);
+            // Subtitles are sorted by time of appearance, so we can iterate without sorting first.
+            int i = 0;
 
-            // Since subtitles are sorted by time of appearance, we save in the index variable
-            // the next subtitle to display (initially the first one at index 0), and when
-            // said subtitle is supposed to appear, we spawn it using SpawnText, until either
-            // the end of the song if it's the last subtitle, or the next subtitle otherwise.
-            for (int i = 0; i < subtitles.Count;)
+            // First, skip all subtitles that have already been seen.
             {
-                Subtitle subtitle = subtitles[i];
+                float currentTime = audio.songTime;
 
-                float subtitleTime = subtitle.Time,
-                      currentTime = audio.songTime;
-
-                if (subtitleTime > currentTime)
+                while (i < subtitles.Count)
                 {
-                    // Not there yet, wait for next subtitle.
-                    if (subtitleTime - currentTime > 1f)
-                        yield return new WaitForSeconds(subtitleTime - currentTime);
-                    else
-                        yield return new WaitForEndOfFrame();
+                    Subtitle subtitle = subtitles[i];
 
-                    continue;
+                    if (subtitle.Time >= currentTime)
+                        // Subtitle appears after current moment, stop skipping
+                        break;
+
+                    i++;
                 }
+            }
 
-                // We good, display subtitle and increase current index.
-                float displayDuration;
+            // Display all lyrics
+            while (i < subtitles.Count)
+            {
+                // Wait for time to display next lyrics
+                yield return new WaitForSeconds(subtitles[i++].Time - audio.songTime + Settings.DisplayDelay);
+
+                if (!Settings.DisplayLyrics)
+                    // Don't display lyrics this time
+                    continue;
+
+                // We good, display lyrics
+                Subtitle subtitle = subtitles[i - 1];
+
+                float displayDuration,
+                      currentTime = audio.songTime;
 
                 if (subtitle.EndTime.HasValue)
                 {
                     displayDuration = subtitle.EndTime.Value - currentTime;
-                    i++;
                 }
                 else
                 {
-                    displayDuration = ++i == subtitles.Count
+                    displayDuration = i == subtitles.Count
                                     ? audio.songLength - currentTime
                                     : subtitles[i].Time - currentTime;
                 }
 
-                if (Settings.DisplayLyrics)
-                    SpawnText(subtitle.Text, displayDuration);
+                SpawnText(subtitle.Text, displayDuration + Settings.HideDelay);
             }
         }
 
@@ -134,11 +188,11 @@ namespace BeatSinger
             // Save the initial float _duration field to a variable,
             // then set it to the chosen duration, call SpawnText, and restore the
             // previously saved duration.
-            object initialDuration = DurationField.GetValue(textSpawner);
+            float initialDuration = GetTextSpawnerDuration(textSpawner);
 
-            DurationField.SetValue(textSpawner, duration);
+            SetTextSpawnerDuration(textSpawner, duration);
             textSpawner.SpawnText(new Vector3(0, 4, 0), text);
-            DurationField.SetValue(textSpawner, initialDuration);
+            SetTextSpawnerDuration(textSpawner, initialDuration);
         }
     }
 }

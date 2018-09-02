@@ -181,9 +181,15 @@ namespace BeatSinger
         public static IEnumerator GetOnlineLyrics(string song, string artist, List<Subtitle> subtitles)
         {
             // Perform request
-            string qTrack = UnityWebRequest.EscapeURL(song);
+            string qTrack  = UnityWebRequest.EscapeURL(song);
             string qArtist = UnityWebRequest.EscapeURL(artist);
-            string url = $"https://apic-desktop.musixmatch.com/ws/1.1/macro.subtitles.get?format=json&q_track={qTrack}&q_artist={qArtist}&user_language=en&userblob_id=aG9va2VkIG9uIGEgZmVlbGluZ19ibHVlIHN3ZWRlXzE3Mg&subtitle_format=mxm&app_id=web-desktop-app-v1.0&usertoken=180220daeb2405592f296c4aea0f6d15e90e08222b559182bacf92";
+
+            string url = "https://apic-desktop.musixmatch.com/ws/1.1/macro.subtitles.get"
+                       +$"?format=json&q_track={qTrack}&q_artist={qArtist}&user_language=en"
+                       + "&userblob_id=aG9va2VkIG9uIGEgZmVlbGluZ19ibHVlIHN3ZWRlXzE3Mg"
+                       + "&subtitle_format=mxm&app_id=web-desktop-app-v1.0"
+                       + "&usertoken=180220daeb2405592f296c4aea0f6d15e90e08222b559182bacf92";
+            
 
             UnityWebRequest req = UnityWebRequest.Get(url);
 
