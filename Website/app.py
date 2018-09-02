@@ -2,7 +2,7 @@ from bottle import abort, app, get, hook, post, request, response, route, run, s
 from os     import chdir, environ, path
 from uuid   import uuid4
 
-import sqlite3
+import json, sqlite3
 
 # Set cwd
 
@@ -74,6 +74,9 @@ def get_song(id: str):
 
 @post('/upload/<token>/<id>')
 def upload(token: str, id: str):
+    if request.content_length > 20_000:
+        return abort(400, 'Song lyrics too large.')
+    
     data = (
         id, request.content_type == 'application/json', token, request.body
     )
@@ -106,6 +109,6 @@ def get_tokens(master: str):
     c = db.cursor()
     c.execute('SELECT * FROM tokens')
 
-    return c.fetchall()
+    return json.dumps(c.fetchall())
 
 run(host='0.0.0.0', port=environ.get('PORT', 5000))
