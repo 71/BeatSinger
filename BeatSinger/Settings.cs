@@ -12,6 +12,7 @@ namespace BeatSinger
         public static int  ToggleKeyCode { get; set; }
         public static float DisplayDelay { get; set; }
         public static float HideDelay    { get; set; }
+        public static bool VerboseLogging { get; set; }
 
         public static void Save()
         {
@@ -19,6 +20,9 @@ namespace BeatSinger
             ModPrefs.SetInt  (PrefsSection, nameof(ToggleKeyCode), ToggleKeyCode);
             ModPrefs.SetFloat(PrefsSection, nameof(DisplayDelay) , DisplayDelay);
             ModPrefs.SetFloat(PrefsSection, nameof(HideDelay)    , HideDelay);
+
+            if (VerboseLogging)
+                ModPrefs.SetBool(PrefsSection, nameof(VerboseLogging), true);
         }
 
         public static void Load()
@@ -37,6 +41,8 @@ namespace BeatSinger
 
             DisplayDelay = ModPrefs.GetFloat(PrefsSection, nameof(DisplayDelay), -.1f);
             HideDelay    = ModPrefs.GetFloat(PrefsSection, nameof(HideDelay)   , 0f);
+
+            VerboseLogging = ModPrefs.GetBool(PrefsSection, nameof(VerboseLogging), false);
         }
     }
 }

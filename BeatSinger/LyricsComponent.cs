@@ -67,6 +67,12 @@ namespace BeatSinger
             // then we get its GameSongController to find the audio clip,
             // and its FlyingTextSpawner to display the lyrics.
 
+            if (Settings.VerboseLogging)
+            {
+                Debug.Log("[Beat Singer] Attached to scene.");
+                Debug.Log($"[Beat Singer] Lyrics are enabled: {Settings.DisplayLyrics}.");
+            }
+
 
             textSpawner = FindObjectOfType<FlyingTextSpawner>();
             songController = FindObjectOfType<GameSongController>();
@@ -90,16 +96,20 @@ namespace BeatSinger
 
             if (LyricsFetcher.GetLocalLyrics(sceneSetupData.difficultyLevel.level.levelID, subtitles))
             {
+                Debug.Log("[Beat Singer] Found local lyrics.");
+
                 // Lyrics found locally, continue with them.
                 SpawnText("Lyrics found locally", 3f);
             }
             else
             {
+                Debug.Log("[Beat Singer] Did not find local lyrics, trying online lyrics...");
+
                 // Clip found, now select the first song that has the same clip (using reference comparison).
                 IStandardLevel level = sceneSetupData.difficultyLevel.level;
 
                 // We found the matching song, we can get started.
-                Debug.Log($"Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
+                Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
 
                 // When this coroutine ends, it will call the given callback with a list
                 // of all the subtitles we found, and allow us to react.
@@ -151,6 +161,9 @@ namespace BeatSinger
                 }
             }
 
+            if (Settings.VerboseLogging && i > 0)
+                Debug.Log($"[Beat Singer] Skipped {i} lyrics because they started too soon.");
+
             // Display all lyrics
             while (i < subtitles.Count)
             {
@@ -177,6 +190,9 @@ namespace BeatSinger
                                     ? audio.songLength - currentTime
                                     : subtitles[i].Time - currentTime;
                 }
+
+                if (Settings.VerboseLogging)
+                    Debug.Log($"[Beat Singer] At {currentTime} and for {displayDuration} seconds, displaying lyrics \"{subtitle.Text}\".");
 
                 SpawnText(subtitle.Text, displayDuration + Settings.HideDelay);
             }

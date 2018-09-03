@@ -9,7 +9,7 @@ namespace BeatSinger
     public sealed class Plugin : IPlugin
     {
         public string Name => "Beat Singer";
-        public string Version => "0.5.0";
+        public string Version => "0.5.1";
 
         public void OnApplicationStart()
         {

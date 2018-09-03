@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -11,7 +12,6 @@ using UnityEngine.Networking;
 namespace BeatSinger
 {
     using SimpleJSON;
-
 
     /// <summary>
     ///   Defines a subtitle.
@@ -26,6 +26,9 @@ namespace BeatSinger
         {
             JSONNode time = node["time"];
 
+            if (time == null)
+                throw new Exception("Subtitle did not have a 'time' property.");
+
             Text = node["text"];
 
             if (time.IsNumber)
@@ -33,7 +36,7 @@ namespace BeatSinger
                 Time = time;
 
                 if (node["end"])
-                    EndTime = node["end"].AsFloat;
+                    EndTime = node["end"];
             }
             else
             {
@@ -63,6 +66,9 @@ namespace BeatSinger
             string songDirectory = SongLoader.CustomLevels.Find(x => x.customSongInfo.GetIdentifier() == songId)
                                                          ?.customSongInfo
                                                          ?.path;
+
+            Debug.Log($"[Beat Singer] Song directory: {songDirectory}.");
+
             if (songDirectory == null)
                 return false;
 
@@ -129,11 +135,11 @@ namespace BeatSinger
 
                                 startTime = int.Parse(m.Groups[1].Value) * 3600
                                           + int.Parse(m.Groups[2].Value) * 60
-                                          + float.Parse(m.Groups[3].Value.Replace(',', '.'));
+                                          + float.Parse(m.Groups[3].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
 
                                 endTime = int.Parse(m.Groups[4].Value) * 3600
                                         + int.Parse(m.Groups[5].Value) * 60
-                                        + float.Parse(m.Groups[6].Value.Replace(',', '.'));
+                                        + float.Parse(m.Groups[6].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
 
                                 // Subtitle start / end found; continue to next state.
                                 state = 2;
@@ -167,7 +173,7 @@ namespace BeatSinger
 
                 Invalid:
 
-                Debug.Log("Invalid subtiles file found, cancelling load...");
+                Debug.Log("[Beat Singer] Invalid subtiles file found, cancelling load...");
                 subtitles.Clear();
             }
 
