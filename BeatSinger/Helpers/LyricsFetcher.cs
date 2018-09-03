@@ -57,6 +57,95 @@ namespace BeatSinger
     /// </summary>
     public static class LyricsFetcher
     {
+        private static void PopulateFromJson(string json, List<Subtitle> subtitles)
+        {
+            JSONArray subtitlesArray = JSON.Parse(json).AsArray;
+
+            subtitles.Capacity = subtitlesArray.Count;
+
+            foreach (JSONNode node in subtitlesArray)
+            {
+                subtitles.Add(new Subtitle(node));
+            }
+        }
+
+        private static void PopulateFromSrt(TextReader reader, List<Subtitle> subtitles)
+        {
+            // Parse using a simple state machine:
+            //   0: Parsing number
+            //   1: Parsing start / end time
+            //   2: Parsing text
+            byte state = 0;
+
+            float startTime = 0f,
+                  endTime = 0f;
+
+            StringBuilder text = new StringBuilder();
+            string line;
+
+            while ((line = reader.ReadLine()) != null)
+            {
+                switch (state)
+                {
+                    case 0:
+                        if (string.IsNullOrEmpty(line))
+                            // No number found; continue in same state.
+                            continue;
+
+                        if (!int.TryParse(line, out int _))
+                            goto Invalid;
+
+                        // Number found; continue to next state.
+                        state = 1;
+                        break;
+
+                    case 1:
+                        Match m = Regex.Match(line, @"(\d+):(\d+):(\d+,\d+) *--> *(\d+):(\d+):(\d+,\d+)");
+
+                        if (!m.Success)
+                            goto Invalid;
+
+                        startTime = int.Parse(m.Groups[1].Value) * 3600
+                                  + int.Parse(m.Groups[2].Value) * 60
+                                  + float.Parse(m.Groups[3].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
+
+                        endTime = int.Parse(m.Groups[4].Value) * 3600
+                                + int.Parse(m.Groups[5].Value) * 60
+                                + float.Parse(m.Groups[6].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
+
+                        // Subtitle start / end found; continue to next state.
+                        state = 2;
+                        break;
+
+                    case 2:
+                        if (string.IsNullOrEmpty(line))
+                        {
+                            // End of text; continue to next state.
+                            subtitles.Add(new Subtitle(text.ToString(), startTime, endTime));
+
+                            text.Length = 0;
+                            state = 0;
+                        }
+                        else
+                        {
+                            // Continuation of text; continue in same state.
+                            text.AppendLine(line);
+                        }
+
+                        break;
+
+                    default:
+                        // Shouldn't happen.
+                        throw new Exception();
+                }
+            }
+
+            Invalid:
+
+            Debug.Log("[Beat Singer] Invalid subtiles file found, cancelling load...");
+            subtitles.Clear();
+        }
+
         /// <summary>
         ///   Fetches the lyrics of the given song on the local file system and, if they're found,
         ///   populates the given list.
@@ -77,15 +166,7 @@ namespace BeatSinger
 
             if (File.Exists(jsonFile))
             {
-                string json = File.ReadAllText(jsonFile);
-                JSONArray subtitlesArray = JSON.Parse(json).AsArray;
-
-                subtitles.Capacity = subtitlesArray.Count;
-
-                foreach (JSONNode node in subtitlesArray)
-                {
-                    subtitles.Add(new Subtitle(node));
-                }
+                PopulateFromJson(File.ReadAllText(jsonFile), subtitles);
 
                 return true;
             }
@@ -98,83 +179,11 @@ namespace BeatSinger
                 using (FileStream fs = File.OpenRead(srtFile))
                 using (StreamReader reader = new StreamReader(fs))
                 {
-                    // Parse using a simple state machine:
-                    //   0: Parsing number
-                    //   1: Parsing start / end time
-                    //   2: Parsing text
-                    byte state = 0;
-
-                    float startTime = 0f,
-                          endTime = 0f;
-
-                    StringBuilder text = new StringBuilder();
-
-                    while (!reader.EndOfStream)
-                    {
-                        string line = reader.ReadLine();
-
-                        switch (state)
-                        {
-                            case 0:
-                                if (string.IsNullOrEmpty(line))
-                                    // No number found; continue in same state.
-                                    continue;
-
-                                if (!int.TryParse(line, out int _))
-                                    goto Invalid;
-
-                                // Number found; continue to next state.
-                                state = 1;
-                                break;
-
-                            case 1:
-                                Match m = Regex.Match(line, @"(\d+):(\d+):(\d+,\d+) *--> *(\d+):(\d+):(\d+,\d+)");
-
-                                if (!m.Success)
-                                    goto Invalid;
-
-                                startTime = int.Parse(m.Groups[1].Value) * 3600
-                                          + int.Parse(m.Groups[2].Value) * 60
-                                          + float.Parse(m.Groups[3].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
-
-                                endTime = int.Parse(m.Groups[4].Value) * 3600
-                                        + int.Parse(m.Groups[5].Value) * 60
-                                        + float.Parse(m.Groups[6].Value.Replace(',', '.'), NumberStyles.Float, CultureInfo.InvariantCulture);
-
-                                // Subtitle start / end found; continue to next state.
-                                state = 2;
-                                break;
-
-                            case 2:
-                                if (string.IsNullOrEmpty(line))
-                                {
-                                    // End of text; continue to next state.
-                                    subtitles.Add(new Subtitle(text.ToString(), startTime, endTime));
-
-                                    text.Length = 0;
-                                    state = 0;
-                                }
-                                else
-                                {
-                                    // Continuation of text; continue in same state.
-                                    text.AppendLine(line);
-                                }
-
-                                break;
-
-                            default:
-                                // Shouldn't happen.
-                                throw new Exception();
-                        }
-                    }
+                    PopulateFromSrt(reader, subtitles);
 
                     return true;
                 }
 
-                Invalid:
-
-                Debug.Log("[Beat Singer] Invalid subtiles file found, cancelling load...");
-                subtitles.Clear();
             }
 
             return false;
@@ -184,7 +193,46 @@ namespace BeatSinger
         ///   Fetches the lyrics of the given song online asynchronously and, if they're found,
         ///   populates the given list.
         /// </summary>
-        public static IEnumerator GetOnlineLyrics(string song, string artist, List<Subtitle> subtitles)
+        public static IEnumerator GetOnlineLyrics(IStandardLevel level, List<Subtitle> subtitles)
+        {
+            // Perform request
+            UnityWebRequest req = UnityWebRequest.Get($"https://beatsinger.herokuapp.com/{level.GetLyricsHash()}");
+
+            yield return req.SendWebRequest();
+
+            if (req.isNetworkError || req.isHttpError)
+            {
+                Debug.Log(req.error);
+            }
+            else if (req.responseCode == 200)
+            {
+                // Request done, process result
+                try
+                {
+                    if (req.GetResponseHeader("Content-Type") == "application/json")
+                    {
+                        PopulateFromJson(req.downloadHandler.text, subtitles);
+                    }
+                    else
+                    {
+                        using (StringReader reader = new StringReader(req.downloadHandler.text))
+                            PopulateFromSrt(reader, subtitles);
+                    }
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
+            }
+
+            req.Dispose();
+        }
+
+        /// <summary>
+        ///   Fetches the lyrics of the given song online asynchronously using Musixmatch and, if they're found,
+        ///   populates the given list.
+        /// </summary>
+        public static IEnumerator GetMusixmatchLyrics(string song, string artist, List<Subtitle> subtitles)
         {
             // Perform request
             string qTrack  = UnityWebRequest.EscapeURL(song);
@@ -238,6 +286,16 @@ namespace BeatSinger
             }
 
             req.Dispose();
+        }
+
+        /// <summary>
+        ///   Gets an ID that can be used to identify lyrics on the Beat Singer lyrics resolver.
+        /// </summary>
+        public static string GetLyricsHash(this IStandardLevel level)
+        {
+            string id = string.Join(", ", level.songName, level.songAuthorName, level.songSubName, level.beatsPerMinute, level.audioClip.length, level.songTimeOffset);
+
+            return Convert.ToBase64String(Encoding.UTF8.GetBytes(id));
         }
     }
 }

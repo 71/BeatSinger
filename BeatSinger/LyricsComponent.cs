@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
+using System.Text;
 using UnityEngine;
 
 namespace BeatSinger
@@ -92,11 +93,15 @@ namespace BeatSinger
             if (sceneSetupData == null)
                 yield break;
 
+            IStandardLevel level = sceneSetupData.difficultyLevel.level;
             List<Subtitle> subtitles = new List<Subtitle>();
+
+            Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
 
             if (LyricsFetcher.GetLocalLyrics(sceneSetupData.difficultyLevel.level.levelID, subtitles))
             {
-                Debug.Log("[Beat Singer] Found local lyrics.");
+                Debug.Log( "[Beat Singer] Found local lyrics.");
+                Debug.Log($"[Beat Singer] These lyrics can be uploaded online using the ID: \"{level.GetLyricsHash()}\".");
 
                 // Lyrics found locally, continue with them.
                 SpawnText("Lyrics found locally", 3f);
@@ -105,25 +110,27 @@ namespace BeatSinger
             {
                 Debug.Log("[Beat Singer] Did not find local lyrics, trying online lyrics...");
 
-                // Clip found, now select the first song that has the same clip (using reference comparison).
-                IStandardLevel level = sceneSetupData.difficultyLevel.level;
-
-                // We found the matching song, we can get started.
-                Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
-
                 // When this coroutine ends, it will call the given callback with a list
                 // of all the subtitles we found, and allow us to react.
                 // If no subs are found, the callback is not called.
-                yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(level.songName, level.songAuthorName, subtitles));
+                yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(level, subtitles));
 
-                if (subtitles.Count == 0)
-                {
-                    yield return StartCoroutine(LyricsFetcher.GetOnlineLyrics(level.songName, level.songSubName, subtitles));
+                if (subtitles.Count != 0)
+                    goto FoundOnlineLyrics;
 
-                    if (subtitles.Count == 0)
-                        yield break;
-                }
+                yield return StartCoroutine(LyricsFetcher.GetMusixmatchLyrics(level.songName, level.songAuthorName, subtitles));
 
+                if (subtitles.Count != 0)
+                    goto FoundOnlineLyrics;
+
+                yield return StartCoroutine(LyricsFetcher.GetMusixmatchLyrics(level.songName, level.songSubName, subtitles));
+
+                if (subtitles.Count != 0)
+                    goto FoundOnlineLyrics;
+
+                yield break;
+
+                FoundOnlineLyrics:
                 SpawnText("Lyrics found online", 3f);
             }
 
