@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net46</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <RunPostBuildEvent>OnBuildSuccess</RunPostBuildEvent>
 
-    <BeatSaberDir>..\..\..\Games\Steam\steamapps\common\Beat Saber</BeatSaberDir>
+    <BeatSaberDir>A:\Program Files\Steam\steamapps\common\Beat Saber</BeatSaberDir>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

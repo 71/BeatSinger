@@ -9,7 +9,7 @@ namespace BeatSinger
     public sealed class Plugin : IPlugin
     {
         public string Name => "Beat Singer";
-        public string Version => "0.6.0";
+        public string Version => "0.7.0";
 
         public void OnApplicationStart()
         {
@@ -45,25 +45,8 @@ namespace BeatSinger
 
         public void OnActiveSceneChanged(Scene _, Scene newScene)
         {
-            switch (newScene.buildIndex)
-            {
-                case 1:
-                case 2:
-                    // Return if we're not playing in a song.
-                    return;
-                case 8:
-                case 9:
-                    // We're in a song: attach our component.
-                    newScene.GetRootGameObjects()[0].AddComponent<LyricsComponent>();
-                    return;
-                
-                default:
-                    // Unknown, fallback to matching the name.
-                    if (newScene.name.Contains("Environment"))
-                        goto case 8;
-                    else
-                        return;
-            }
+            if (newScene.name == "GameCore")
+                newScene.GetRootGameObjects()[0].AddComponent<LyricsComponent>();
         }
     }
 }

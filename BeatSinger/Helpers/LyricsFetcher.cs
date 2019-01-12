@@ -193,7 +193,7 @@ namespace BeatSinger
         ///   Fetches the lyrics of the given song online asynchronously and, if they're found,
         ///   populates the given list.
         /// </summary>
-        public static IEnumerator GetOnlineLyrics(IStandardLevel level, List<Subtitle> subtitles)
+        public static IEnumerator GetOnlineLyrics(IBeatmapLevel level, List<Subtitle> subtitles)
         {
             // Perform request
             UnityWebRequest req = UnityWebRequest.Get($"https://beatsinger.herokuapp.com/{level.GetLyricsHash()}");
@@ -243,7 +243,7 @@ namespace BeatSinger
                        + "&userblob_id=aG9va2VkIG9uIGEgZmVlbGluZ19ibHVlIHN3ZWRlXzE3Mg"
                        + "&subtitle_format=mxm&app_id=web-desktop-app-v1.0"
                        + "&usertoken=180220daeb2405592f296c4aea0f6d15e90e08222b559182bacf92";
-            
+
 
             UnityWebRequest req = UnityWebRequest.Get(url);
 
@@ -291,7 +291,7 @@ namespace BeatSinger
         /// <summary>
         ///   Gets an ID that can be used to identify lyrics on the Beat Singer lyrics resolver.
         /// </summary>
-        public static string GetLyricsHash(this IStandardLevel level)
+        public static string GetLyricsHash(this IBeatmapLevel level)
         {
             string id = string.Join(", ", level.songName, level.songAuthorName, level.songSubName, level.beatsPerMinute, level.audioClip.length, level.songTimeOffset);
 

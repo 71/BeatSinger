@@ -18,9 +18,6 @@ namespace BeatSinger
         private static readonly FieldInfo AudioTimeSyncField
             = typeof(GameSongController).GetField("_audioTimeSyncController", NON_PUBLIC_INSTANCE);
 
-        private static readonly FieldInfo SetupDataField
-            = typeof(MainGameSceneSetup).GetField("_mainGameSceneSetupData", NON_PUBLIC_INSTANCE);
-
         private static readonly Func<FlyingTextSpawner, float> GetTextSpawnerDuration;
         private static readonly Action<FlyingTextSpawner, float> SetTextSpawnerDuration;
 
@@ -70,7 +67,7 @@ namespace BeatSinger
 
             if (Settings.VerboseLogging)
             {
-                Debug.Log("[Beat Singer] Attached to scene.");
+                Debug.Log( "[Beat Singer] Attached to scene.");
                 Debug.Log($"[Beat Singer] Lyrics are enabled: {Settings.DisplayLyrics}.");
             }
 
@@ -78,27 +75,24 @@ namespace BeatSinger
             textSpawner = FindObjectOfType<FlyingTextSpawner>();
             songController = FindObjectOfType<GameSongController>();
 
-            if (textSpawner == null || songController == null)
-                yield break;
-            
-            audio = (AudioTimeSyncController)AudioTimeSyncField.GetValue(songController);
+            var sceneSetup = FindObjectOfType<StandardLevelSceneSetup>();
 
-            MainGameSceneSetup sceneSetup = FindObjectOfType<MainGameSceneSetup>();
-
-            if (sceneSetup == null)
+            if (textSpawner == null || songController == null || sceneSetup == null)
                 yield break;
 
-            MainGameSceneSetupData sceneSetupData = SetupDataField.GetValue(sceneSetup) as MainGameSceneSetupData;
+            var sceneSetupData = sceneSetup.standardLevelSceneSetupData;
 
             if (sceneSetupData == null)
                 yield break;
 
-            IStandardLevel level = sceneSetupData.difficultyLevel.level;
+            audio = (AudioTimeSyncController)AudioTimeSyncField.GetValue(songController);
+
+            IBeatmapLevel level = sceneSetupData.difficultyBeatmap.level;
             List<Subtitle> subtitles = new List<Subtitle>();
 
             Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
 
-            if (LyricsFetcher.GetLocalLyrics(sceneSetupData.difficultyLevel.level.levelID, subtitles))
+            if (LyricsFetcher.GetLocalLyrics(sceneSetupData.difficultyBeatmap.level.levelID, subtitles))
             {
                 Debug.Log( "[Beat Singer] Found local lyrics.");
                 Debug.Log($"[Beat Singer] These lyrics can be uploaded online using the ID: \"{level.GetLyricsHash()}\".");
