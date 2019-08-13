@@ -18,6 +18,15 @@ namespace BeatSinger
         private static readonly FieldInfo AudioTimeSyncField
             = typeof(GameSongController).GetField("_audioTimeSyncController", NON_PUBLIC_INSTANCE);
 
+        private static readonly FieldInfo SceneSetupDataField
+            = typeof(SceneSetup<GameplayCoreSceneSetupData>).GetField("_sceneSetupData", NON_PUBLIC_INSTANCE);
+
+        private static readonly FieldInfo ContainerField
+            = typeof(Zenject.MonoInstallerBase).GetField("<Container>k__BackingField", NON_PUBLIC_INSTANCE);
+
+        private static readonly FieldInfo FlyingTextEffectPoolField
+            = typeof(FlyingTextSpawner).GetField("_flyingTextEffectPool", NON_PUBLIC_INSTANCE);
+
         private static readonly Func<FlyingTextSpawner, float> GetTextSpawnerDuration;
         private static readonly Action<FlyingTextSpawner, float> SetTextSpawnerDuration;
 
@@ -71,16 +80,23 @@ namespace BeatSinger
                 Debug.Log($"[Beat Singer] Lyrics are enabled: {Settings.DisplayLyrics}.");
             }
 
-
             textSpawner = FindObjectOfType<FlyingTextSpawner>();
             songController = FindObjectOfType<GameSongController>();
 
-            var sceneSetup = FindObjectOfType<StandardLevelSceneSetup>();
+            var sceneSetup = FindObjectOfType<GameplayCoreSceneSetup>();
 
-            if (textSpawner == null || songController == null || sceneSetup == null)
+            if (songController == null || sceneSetup == null)
                 yield break;
 
-            var sceneSetupData = sceneSetup.standardLevelSceneSetupData;
+            if (textSpawner == null)
+            {
+                var installer = FindObjectOfType<EffectPoolsInstaller>();
+                var container = (Zenject.DiContainer)ContainerField.GetValue(installer);
+
+                textSpawner = container.InstantiateComponentOnNewGameObject<FlyingTextSpawner>();
+            }
+
+            var sceneSetupData = (GameplayCoreSceneSetupData)SceneSetupDataField.GetValue(sceneSetup);
 
             if (sceneSetupData == null)
                 yield break;
@@ -90,7 +106,7 @@ namespace BeatSinger
             IBeatmapLevel level = sceneSetupData.difficultyBeatmap.level;
             List<Subtitle> subtitles = new List<Subtitle>();
 
-            Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} / {level.songSubName}.");
+            Debug.Log($"[Beat Singer] Corresponding song data found: {level.songName} by {level.songAuthorName} ({(level.songSubName != null ? level.songSubName : "No sub-name")}).");
 
             if (LyricsFetcher.GetLocalLyrics(sceneSetupData.difficultyBeatmap.level.levelID, subtitles))
             {

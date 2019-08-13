@@ -2,10 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
-using SongLoaderPlugin;
+using SongCore;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -152,9 +153,7 @@ namespace BeatSinger
         /// </summary>
         public static bool GetLocalLyrics(string songId, List<Subtitle> subtitles)
         {
-            string songDirectory = SongLoader.CustomLevels.Find(x => x.customSongInfo.GetIdentifier() == songId)
-                                                         ?.customSongInfo
-                                                         ?.path;
+            string songDirectory = Loader.CustomLevels.Values.FirstOrDefault(x => x.levelID == songId)?.customLevelPath;
 
             Debug.Log($"[Beat Singer] Song directory: {songDirectory}.");
 
@@ -293,7 +292,7 @@ namespace BeatSinger
         /// </summary>
         public static string GetLyricsHash(this IBeatmapLevel level)
         {
-            string id = string.Join(", ", level.songName, level.songAuthorName, level.songSubName, level.beatsPerMinute, level.audioClip.length, level.songTimeOffset);
+            string id = string.Join(", ", level.songName, level.songAuthorName, level.songSubName, level.beatsPerMinute, level.songDuration, level.songTimeOffset);
 
             return Convert.ToBase64String(Encoding.UTF8.GetBytes(id));
         }
