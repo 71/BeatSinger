@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using IllusionPlugin;
 using UnityEngine.XR;
 
@@ -28,10 +29,12 @@ namespace BeatSinger
         public static void Load()
         {
             int defaultKeycode;
+            List<InputDevice> inputDevices = new List<InputDevice>();
+            InputDevices.GetDevices(inputDevices);
 
-            if (XRDevice.model.IndexOf("rift", StringComparison.InvariantCultureIgnoreCase) != -1)
+            if (inputDevices.Exists(x => x.name.IndexOf("rift", StringComparison.InvariantCultureIgnoreCase) != -1))
                 defaultKeycode = (int)ConInput.Oculus.LeftThumbstickPress;
-            else if (XRDevice.model.IndexOf("vive", StringComparison.InvariantCultureIgnoreCase) != -1)
+            else if (inputDevices.Exists(x => x.name.IndexOf("vive", StringComparison.InvariantCultureIgnoreCase) != -1))
                 defaultKeycode = (int)ConInput.Vive.LeftTrackpadPress;
             else
                 defaultKeycode = (int)ConInput.WinMR.LeftThumbstickPress;

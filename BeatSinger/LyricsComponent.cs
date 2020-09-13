@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Reflection.Emit;
-using System.Text;
 using UnityEngine;
 
 namespace BeatSinger
@@ -19,7 +18,7 @@ namespace BeatSinger
             = typeof(GameSongController).GetField("_audioTimeSyncController", NON_PUBLIC_INSTANCE);
 
         private static readonly FieldInfo SceneSetupDataField
-            = typeof(SceneSetup<GameplayCoreSceneSetupData>).GetField("_sceneSetupData", NON_PUBLIC_INSTANCE);
+            = typeof(GameplayCoreSceneSetupData).GetField("_sceneSetupData", NON_PUBLIC_INSTANCE);
 
         private static readonly FieldInfo ContainerField
             = typeof(Zenject.MonoInstallerBase).GetField("<Container>k__BackingField", NON_PUBLIC_INSTANCE);
@@ -224,7 +223,7 @@ namespace BeatSinger
             float initialDuration = GetTextSpawnerDuration(textSpawner);
 
             SetTextSpawnerDuration(textSpawner, duration);
-            textSpawner.SpawnText(new Vector3(0, 4, 0), text);
+            textSpawner.SpawnText(new Vector3(0, 4, 0), Quaternion.identity, Quaternion.identity, text);
             SetTextSpawnerDuration(textSpawner, initialDuration);
         }
     }
